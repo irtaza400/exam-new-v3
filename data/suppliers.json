@@ -1,0 +1,32 @@
+[
+  {
+    "supplier_id": "SUP-NANO-001",
+    "name": "NanoChem Supplier A",
+    "material": "photoresist precursor",
+    "batch": "BATCH-PR-001",
+    "certificate_valid": true,
+    "quality_status": "PASSED",
+    "export_risk": "LOW",
+    "approved": true
+  },
+  {
+    "supplier_id": "SUP-GAS-002",
+    "name": "Advanced Gas Supplier B",
+    "material": "etching gas",
+    "batch": "BATCH-GAS-002",
+    "certificate_valid": true,
+    "quality_status": "PASSED",
+    "export_risk": "MEDIUM",
+    "approved": true
+  },
+  {
+    "supplier_id": "SUP-UNKNOWN-999",
+    "name": "Unknown Dual Use Supplier X",
+    "material": "dual-use nanomaterial precursor",
+    "batch": "BATCH-DU-003",
+    "certificate_valid": false,
+    "quality_status": "REVIEW_REQUIRED",
+    "export_risk": "HIGH",
+    "approved": false
+  }
+]

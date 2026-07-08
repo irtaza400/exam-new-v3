@@ -1,0 +1,29 @@
+[
+  {
+    "zone": "Etching",
+    "gas_ppm": 75,
+    "ppe_compliant": true,
+    "spill_detected": false,
+    "nanoparticle_exposure": 20,
+    "waste_container_full": false,
+    "emission_ppm": 40
+  },
+  {
+    "zone": "Deposition",
+    "gas_ppm": 10,
+    "ppe_compliant": false,
+    "spill_detected": true,
+    "nanoparticle_exposure": 90,
+    "waste_container_full": true,
+    "emission_ppm": 85
+  },
+  {
+    "zone": "Lithography",
+    "gas_ppm": 8,
+    "ppe_compliant": true,
+    "spill_detected": false,
+    "nanoparticle_exposure": 25,
+    "waste_container_full": false,
+    "emission_ppm": 25
+  }
+]

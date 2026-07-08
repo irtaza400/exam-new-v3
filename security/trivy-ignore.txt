@@ -1,0 +1,1 @@
+# Add accepted CVEs here only with examiner/auditor justification.

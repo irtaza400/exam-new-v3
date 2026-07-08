@@ -1,0 +1,12 @@
+paho-mqtt
+influxdb-client
+pandas
+numpy
+scikit-learn
+opcua
+pymodbus==3.6.9
+flask
+python-dotenv
+bandit
+semgrep
+tensorflow

@@ -1,0 +1,6 @@
+skips:
+  - B101
+exclude_dirs:
+  - venv
+  - .git
+  - reports

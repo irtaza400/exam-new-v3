@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: Topic127-InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: topic127
+      defaultBucket: cleanroom
+      tlsSkipVerify: true
+    secureJsonData:
+      token: topic127-token
+    isDefault: true

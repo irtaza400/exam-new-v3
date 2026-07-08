@@ -1,0 +1,9 @@
+{
+  "recipe_id": "RCP-LITHO-001",
+  "process": "nanolithography",
+  "temperature": 22,
+  "humidity": 45,
+  "pressure": 1.0,
+  "etch_time_seconds": 60,
+  "chemical": "approved_photoresist_A"
+}

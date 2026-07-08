@@ -1,0 +1,6 @@
+rules:
+  - id: topic127-print-debug
+    pattern: print(...)
+    message: Debug print found; acceptable for lab demo but review for production.
+    severity: INFO
+    languages: [python]
