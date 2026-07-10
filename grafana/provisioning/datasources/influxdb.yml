@@ -1,0 +1,29 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: InfluxDB
+    orgId: 1
+
+datasources:
+  - name: InfluxDB
+    uid: influxdb-topic127
+    type: influxdb
+    access: proxy
+    orgId: 1
+
+    # Grafana runs inside Docker, so it must use the
+    # InfluxDB Compose service name instead of localhost.
+    url: http://$__env{INFLUX_HOST}:$__env{INFLUX_PORT}
+
+    isDefault: true
+    editable: false
+
+    jsonData:
+      version: Flux
+      organization: $__env{INFLUX_ORG}
+      defaultBucket: $__env{INFLUX_BUCKET}
+      httpMode: POST
+      tlsSkipVerify: false
+
+    secureJsonData:
+      token: $__env{INFLUX_TOKEN}
