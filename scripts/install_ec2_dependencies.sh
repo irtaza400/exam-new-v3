@@ -1,4 +1,4 @@
-```bash
+
 #!/usr/bin/env bash
 
 # ================================================================
@@ -836,4 +836,3 @@ echo
 echo "  docker compose ps"
 echo
 print_separator
-```
