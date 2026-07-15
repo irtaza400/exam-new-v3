@@ -2,203 +2,222 @@
 
 # ================================================================
 # Topic 127 / exam-new-v3
-# Recipe Tamper Simulation Script
+# Controlled Recipe Tamper Demonstration
 #
 # Purpose:
-#   Safely simulate an unauthorized modification to the approved
-#   manufacturing recipe and run the recipe-integrity validator.
+#   1. Verify that the approved recipe is initially valid.
+#   2. Back up the approved recipe.
+#   3. Apply a controlled unauthorized JSON modification.
+#   4. Run the recipe integrity validator.
+#   5. Treat validator exit code 2 as SUCCESSFUL tamper detection.
+#   6. Preserve tampered evidence.
+#   7. Restore the original approved recipe.
+#   8. Confirm that the restored recipe passes validation.
 #
-# Default behaviour:
-#   1. Back up approved_recipe.json
-#   2. Make a valid JSON modification
-#   3. Run recipe_integrity_check.py
-#   4. Preserve evidence in reports/logs
-#   5. Restore the original approved recipe automatically
+# Expected validator exit codes:
+#   0 = recipe integrity verified
+#   1 = validator/configuration/runtime failure
+#   2 = recipe tampering detected
 #
 # Usage:
 #   chmod +x scripts/simulate_recipe_tamper.sh
 #   ./scripts/simulate_recipe_tamper.sh
-#
-# Keep the tampered file after execution:
-#   KEEP_TAMPERED=1 ./scripts/simulate_recipe_tamper.sh
-#
-# Use another virtual environment:
-#   VENV_DIR=/path/to/venv ./scripts/simulate_recipe_tamper.sh
 # ================================================================
 
 set -Eeuo pipefail
 
 # ----------------------------------------------------------------
-# Configuration
+# Paths and configuration
 # ----------------------------------------------------------------
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 VENV_DIR="${VENV_DIR:-${REPO_ROOT}/venv}"
+PYTHON_BIN="${PYTHON_BIN:-${VENV_DIR}/bin/python}"
 
 RECIPE_FILE="${RECIPE_FILE:-${REPO_ROOT}/data/approved_recipe.json}"
-VALIDATOR_SCRIPT="${VALIDATOR_SCRIPT:-${REPO_ROOT}/src/recipe_integrity_check.py}"
+RECIPE_HASH_FILE="${RECIPE_HASH:-${REPO_ROOT}/data/approved_recipe.sha256}"
+VALIDATOR="${REPO_ROOT}/src/recipe_integrity_check.py"
 
-REPORTS_DIR="${REPORTS_DIR:-${REPO_ROOT}/reports}"
-LOGS_DIR="${LOGS_DIR:-${REPO_ROOT}/logs}"
-BACKUP_DIR="${BACKUP_DIR:-${REPO_ROOT}/data/backups}"
-
-KEEP_TAMPERED="${KEEP_TAMPERED:-0}"
+BACKUP_DIR="${REPO_ROOT}/data/backups"
+REPORTS_DIR="${REPO_ROOT}/reports"
+LOGS_DIR="${REPO_ROOT}/logs"
 
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+
 BACKUP_FILE="${BACKUP_DIR}/approved_recipe.${TIMESTAMP}.backup.json"
-TAMPERED_COPY="${REPORTS_DIR}/approved_recipe.${TIMESTAMP}.tampered.json"
+TAMPERED_EVIDENCE_FILE="${REPORTS_DIR}/approved_recipe.${TIMESTAMP}.tampered.json"
 LOG_FILE="${LOGS_DIR}/recipe_tamper_simulation.${TIMESTAMP}.log"
 
-ORIGINAL_RESTORED=false
-TAMPER_APPLIED=false
+ORIGINAL_RECIPE_RESTORED=false
+BACKUP_CREATED=false
 
 # ----------------------------------------------------------------
 # Output helpers
 # ----------------------------------------------------------------
+
+separator() {
+    echo "============================================================"
+}
+
 section() {
     echo
-    echo "============================================================"
+    separator
     echo "$1"
-    echo "============================================================"
+    separator
+}
+
+info() {
+    echo "[INFO] $1"
+}
+
+success() {
+    echo "[SUCCESS] $1"
 }
 
 warning() {
+    echo "[WARNING] $1"
+}
+
+fail() {
     echo
-    echo "WARNING: $1"
+    separator
+    echo "ERROR: $1"
+    separator
+    return 1
 }
 
 # ----------------------------------------------------------------
-# Cleanup and automatic restoration
+# Restore helper
 # ----------------------------------------------------------------
+
+restore_original_recipe() {
+    if [[ "${BACKUP_CREATED}" != "true" ]]; then
+        return 0
+    fi
+
+    if [[ ! -f "${BACKUP_FILE}" ]]; then
+        warning "Backup file is unavailable; automatic restore was not possible."
+        return 1
+    fi
+
+    cp -- "${BACKUP_FILE}" "${RECIPE_FILE}"
+    ORIGINAL_RECIPE_RESTORED=true
+
+    echo "Original recipe restored:"
+    echo "  ${RECIPE_FILE}"
+}
+
+# ----------------------------------------------------------------
+# Cleanup trap
+#
+# The original approved recipe must be restored even if the script
+# is interrupted or a later verification step fails.
+# ----------------------------------------------------------------
+
 cleanup() {
     local exit_code=$?
 
-    if [[ "${TAMPER_APPLIED}" == "true" ]] &&
-       [[ "${KEEP_TAMPERED}" != "1" ]] &&
-       [[ -f "${BACKUP_FILE}" ]]; then
+    if [[ "${BACKUP_CREATED}" == "true" ]] &&
+       [[ "${ORIGINAL_RECIPE_RESTORED}" != "true" ]]; then
 
         echo
-        echo "Restoring original approved recipe..."
+        warning "Restoring original recipe during cleanup..."
 
-        cp "${BACKUP_FILE}" "${RECIPE_FILE}"
-        ORIGINAL_RESTORED=true
-
-        echo "Original recipe restored:"
-        echo "  ${RECIPE_FILE}"
-    fi
-
-    if [[ "${KEEP_TAMPERED}" == "1" ]] &&
-       [[ "${TAMPER_APPLIED}" == "true" ]]; then
-
-        echo
-        echo "KEEP_TAMPERED=1 was specified."
-        echo "The approved recipe remains modified:"
-        echo "  ${RECIPE_FILE}"
-        echo
-        echo "Restore it manually with:"
-        echo "  cp '${BACKUP_FILE}' '${RECIPE_FILE}'"
+        if ! restore_original_recipe; then
+            warning "Automatic recipe restoration failed."
+            exit_code=1
+        fi
     fi
 
     exit "${exit_code}"
 }
 
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # ----------------------------------------------------------------
-# Error handler
+# Run validator while preserving its exit code
 # ----------------------------------------------------------------
-error_handler() {
-    local exit_code=$?
-    local line_number="${1:-unknown}"
 
-    echo
-    echo "============================================================"
-    echo "ERROR: Recipe tamper simulation failed"
-    echo "Line      : ${line_number}"
-    echo "Exit code : ${exit_code}"
-    echo "============================================================"
+run_validator() {
+    local validator_exit_code
 
-    exit "${exit_code}"
+    set +e
+    "${PYTHON_BIN}" "${VALIDATOR}" 2>&1 | tee -a "${LOG_FILE}"
+    validator_exit_code=${PIPESTATUS[0]}
+    set -e
+
+    return "${validator_exit_code}"
 }
-
-trap 'error_handler ${LINENO}' ERR
 
 # ----------------------------------------------------------------
 # Repository setup
 # ----------------------------------------------------------------
+
 cd "${REPO_ROOT}"
 
 mkdir -p \
+    "${BACKUP_DIR}" \
     "${REPORTS_DIR}" \
-    "${LOGS_DIR}" \
-    "${BACKUP_DIR}"
+    "${LOGS_DIR}"
 
-section "Topic 127 — Recipe Tamper Simulation"
+touch "${LOG_FILE}"
 
-echo "Repository root : ${REPO_ROOT}"
-echo "Recipe file     : ${RECIPE_FILE}"
-echo "Validator       : ${VALIDATOR_SCRIPT}"
-echo "Backup file     : ${BACKUP_FILE}"
-echo "Log file        : ${LOG_FILE}"
+exec > >(tee -a "${LOG_FILE}") 2>&1
+
+section "Topic 127 — Controlled Recipe Tamper Simulation"
+
+echo "Repository root   : ${REPO_ROOT}"
+echo "Recipe file       : ${RECIPE_FILE}"
+echo "Approved hash file: ${RECIPE_HASH_FILE}"
+echo "Validator         : ${VALIDATOR}"
+echo "Backup file       : ${BACKUP_FILE}"
+echo "Evidence file     : ${TAMPERED_EVIDENCE_FILE}"
+echo "Log file          : ${LOG_FILE}"
 
 # ----------------------------------------------------------------
-# Validate required files
+# Step 1: Validate required files and Python environment
 # ----------------------------------------------------------------
+
+section "[1/7] Validating prerequisites"
+
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+    fail "Virtual-environment Python was not found: ${PYTHON_BIN}"
+    exit 1
+fi
+
 if [[ ! -f "${RECIPE_FILE}" ]]; then
-    echo
-    echo "ERROR: Approved recipe file was not found."
-    echo
-    echo "Expected location:"
-    echo "  ${RECIPE_FILE}"
-
+    fail "Approved recipe file was not found: ${RECIPE_FILE}"
     exit 1
 fi
 
-if [[ ! -f "${VALIDATOR_SCRIPT}" ]]; then
-    echo
-    echo "ERROR: Recipe integrity validator was not found."
-    echo
-    echo "Expected location:"
-    echo "  ${VALIDATOR_SCRIPT}"
-
+if [[ ! -f "${RECIPE_HASH_FILE}" ]]; then
+    fail "Approved recipe hash file was not found: ${RECIPE_HASH_FILE}"
     exit 1
 fi
 
-# ----------------------------------------------------------------
-# Activate virtual environment
-# ----------------------------------------------------------------
-section "[1/6] Activating Python virtual environment"
-
-if [[ ! -f "${VENV_DIR}/bin/activate" ]]; then
-    echo
-    echo "ERROR: Python virtual environment was not found."
-    echo
-    echo "Expected location:"
-    echo "  ${VENV_DIR}"
-    echo
-    echo "Run:"
-    echo "  ./scripts/install_ec2_dependencies.sh"
-
+if [[ ! -f "${VALIDATOR}" ]]; then
+    fail "Recipe integrity validator was not found: ${VALIDATOR}"
     exit 1
 fi
-
-# shellcheck disable=SC1091
-source "${VENV_DIR}/bin/activate"
 
 echo "Python executable:"
-python -c 'import sys; print(sys.executable)'
+echo "  ${PYTHON_BIN}"
 
-echo
-echo "Python version:"
-python --version
+"${PYTHON_BIN}" --version
+
+success "Required files and Python environment are available."
 
 # ----------------------------------------------------------------
-# Validate original JSON
+# Step 2: Validate original recipe JSON
 # ----------------------------------------------------------------
-section "[2/6] Validating original recipe JSON"
 
-python - "${RECIPE_FILE}" <<'PY'
+section "[2/7] Validating original recipe JSON"
+
+"${PYTHON_BIN}" - "${RECIPE_FILE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -212,137 +231,200 @@ print(f"Original JSON is valid: {recipe_path}")
 PY
 
 # ----------------------------------------------------------------
-# Back up original recipe
+# Step 3: Verify original recipe integrity before tampering
 # ----------------------------------------------------------------
-section "[3/6] Backing up approved recipe"
 
-cp "${RECIPE_FILE}" "${BACKUP_FILE}"
+section "[3/7] Verifying original approved recipe"
+
+set +e
+run_validator
+ORIGINAL_VALIDATOR_EXIT_CODE=$?
+set -e
+
+case "${ORIGINAL_VALIDATOR_EXIT_CODE}" in
+    0)
+        success "Original recipe integrity is valid."
+        ;;
+    2)
+        fail "The recipe is already modified before the demonstration."
+        echo
+        echo "Restore the approved recipe before running this simulation."
+        exit 1
+        ;;
+    *)
+        fail "Initial recipe validation failed with exit code ${ORIGINAL_VALIDATOR_EXIT_CODE}."
+        exit 1
+        ;;
+esac
+
+# ----------------------------------------------------------------
+# Step 4: Back up approved recipe
+# ----------------------------------------------------------------
+
+section "[4/7] Backing up approved recipe"
+
+cp -- "${RECIPE_FILE}" "${BACKUP_FILE}"
+BACKUP_CREATED=true
 
 echo "Backup created:"
 echo "  ${BACKUP_FILE}"
 
 # ----------------------------------------------------------------
-# Apply valid JSON tamper
+# Step 5: Apply controlled unauthorized modification
+#
+# The modification preserves valid JSON so that the demonstration
+# proves integrity detection rather than merely JSON syntax failure.
 # ----------------------------------------------------------------
-section "[4/6] Applying unauthorized recipe modification"
 
-python - "${RECIPE_FILE}" "${TIMESTAMP}" <<'PY'
+section "[5/7] Applying controlled unauthorized modification"
+
+"${PYTHON_BIN}" - "${RECIPE_FILE}" <<'PY'
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+recipe_path = Path(sys.argv[1])
+
+with recipe_path.open("r", encoding="utf-8") as file:
+    recipe = json.load(file)
+
+if not isinstance(recipe, dict):
+    raise SystemExit(
+        "ERROR: Approved recipe must contain a top-level JSON object."
+    )
+
+recipe["_unauthorized_change_demo"] = {
+    "status": "UNAUTHORIZED",
+    "reason": "Controlled integrity-validation demonstration",
+    "modified_at": datetime.now(timezone.utc).isoformat(),
+}
+
+with recipe_path.open("w", encoding="utf-8", newline="\n") as file:
+    json.dump(recipe, file, indent=2, sort_keys=True)
+    file.write("\n")
+
+print(f"Controlled unauthorized modification applied: {recipe_path}")
+PY
+
+# Verify that the modified document remains valid JSON.
+"${PYTHON_BIN}" - "${RECIPE_FILE}" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 recipe_path = Path(sys.argv[1])
-timestamp = sys.argv[2]
 
 with recipe_path.open("r", encoding="utf-8") as file:
-    recipe = json.load(file)
+    json.load(file)
 
-tamper_record = {
-    "status": "unauthorized-change",
-    "timestamp_utc": timestamp,
-    "source": "simulate_recipe_tamper.sh",
-    "description": "Security validation tamper simulation"
-}
-
-if isinstance(recipe, dict):
-    recipe["_unauthorized_tamper_simulation"] = tamper_record
-
-elif isinstance(recipe, list):
-    recipe.append({
-        "_unauthorized_tamper_simulation": tamper_record
-    })
-
-else:
-    recipe = {
-        "original_recipe_value": recipe,
-        "_unauthorized_tamper_simulation": tamper_record
-    }
-
-with recipe_path.open("w", encoding="utf-8", newline="\n") as file:
-    json.dump(recipe, file, indent=2, ensure_ascii=False)
-    file.write("\n")
-
-print(f"Tamper modification applied to: {recipe_path}")
+print("Tampered recipe remains valid JSON.")
 PY
 
-TAMPER_APPLIED=true
-
-# Preserve a copy for examination evidence before restoration.
-cp "${RECIPE_FILE}" "${TAMPERED_COPY}"
+cp -- "${RECIPE_FILE}" "${TAMPERED_EVIDENCE_FILE}"
 
 echo
 echo "Tampered evidence copy created:"
-echo "  ${TAMPERED_COPY}"
-
-# Confirm tampered file is still valid JSON.
-python -m json.tool "${RECIPE_FILE}" >/dev/null
-
-echo "Tampered recipe remains valid JSON."
+echo "  ${TAMPERED_EVIDENCE_FILE}"
 
 # ----------------------------------------------------------------
-# Run integrity validator
+# Step 6: Run validator and interpret exit code correctly
 # ----------------------------------------------------------------
-section "[5/6] Running recipe integrity validator"
+
+section "[6/7] Verifying tamper detection"
 
 set +e
-
-python "${VALIDATOR_SCRIPT}" 2>&1 | tee "${LOG_FILE}"
-VALIDATOR_EXIT_CODE=${PIPESTATUS[0]}
-
+run_validator
+TAMPER_VALIDATOR_EXIT_CODE=$?
 set -e
 
-echo
-echo "Recipe integrity validator exit code:"
-echo "  ${VALIDATOR_EXIT_CODE}"
+case "${TAMPER_VALIDATOR_EXIT_CODE}" in
+    2)
+        success "Recipe tampering was detected as expected."
+        echo "Validator exit code: 2 — expected security-detection result."
+        ;;
+    0)
+        fail "Validator returned success but did not detect the tampered recipe."
+        exit 1
+        ;;
+    *)
+        fail "Validator failed unexpectedly with exit code ${TAMPER_VALIDATOR_EXIT_CODE}."
+        exit "${TAMPER_VALIDATOR_EXIT_CODE}"
+        ;;
+esac
 
-if [[ "${VALIDATOR_EXIT_CODE}" -eq 0 ]]; then
-    warning "The validator returned success after the recipe was modified."
+# Confirm that the incident evidence report exists.
+INCIDENT_REPORT="${REPORTS_DIR}/recipe_tamper_incidents.csv"
 
-    echo
-    echo "This may mean one of the following:"
-    echo "  1. The validator records tampering in a report but returns 0."
-    echo "  2. The integrity baseline is being regenerated automatically."
-    echo "  3. The validator is not checking this exact recipe file."
-    echo
-    echo "Review:"
-    echo "  ${LOG_FILE}"
-    echo "  ${REPORTS_DIR}"
-else
-    echo
-    echo "Expected security result:"
-    echo "The integrity validator returned a non-zero status after"
-    echo "the unauthorized recipe change."
+if [[ ! -s "${INCIDENT_REPORT}" ]]; then
+    fail "Tamper incident report was not generated: ${INCIDENT_REPORT}"
+    exit 1
 fi
 
+if ! grep -q "Manufacturing recipe tampering detected" "${INCIDENT_REPORT}"; then
+    fail "Expected tamper incident entry was not found in ${INCIDENT_REPORT}"
+    exit 1
+fi
+
+success "Recipe tamper incident evidence was generated."
+
 # ----------------------------------------------------------------
-# Evidence summary
+# Step 7: Restore and revalidate approved recipe
 # ----------------------------------------------------------------
-section "[6/6] Simulation evidence summary"
 
-echo "Original backup:"
-echo "  ${BACKUP_FILE}"
+section "[7/7] Restoring and revalidating approved recipe"
 
+restore_original_recipe
+
+# Validate restored JSON.
+"${PYTHON_BIN}" - "${RECIPE_FILE}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+recipe_path = Path(sys.argv[1])
+
+with recipe_path.open("r", encoding="utf-8") as file:
+    json.load(file)
+
+print("Restored recipe JSON is valid.")
+PY
+
+set +e
+run_validator
+RESTORED_VALIDATOR_EXIT_CODE=$?
+set -e
+
+if [[ "${RESTORED_VALIDATOR_EXIT_CODE}" -ne 0 ]]; then
+    fail "Restored recipe failed integrity validation with exit code ${RESTORED_VALIDATOR_EXIT_CODE}."
+    exit 1
+fi
+
+success "Original approved recipe was restored and verified."
+
+# ----------------------------------------------------------------
+# Final result
+# ----------------------------------------------------------------
+
+section "Recipe Tamper Demonstration Completed Successfully"
+
+echo "Expected result:"
+echo "  Tampering detected by SHA-256 integrity validation"
 echo
-echo "Tampered evidence copy:"
-echo "  ${TAMPERED_COPY}"
-
+echo "Validator result:"
+echo "  Exit code 2 correctly interpreted as detection success"
 echo
-echo "Validator log:"
+echo "Restoration result:"
+echo "  Original approved recipe restored and revalidated"
+echo
+echo "Evidence:"
+echo "  ${TAMPERED_EVIDENCE_FILE}"
+echo "  ${INCIDENT_REPORT}"
+echo
+echo "Log:"
 echo "  ${LOG_FILE}"
-
 echo
-echo "Current recipe:"
-echo "  ${RECIPE_FILE}"
 
-if [[ "${KEEP_TAMPERED}" == "1" ]]; then
-    echo
-    echo "The modified recipe will remain in place."
-else
-    echo
-    echo "The original recipe will now be restored automatically."
-fi
+success "Controlled recipe tamper simulation completed successfully."
 
-echo
-echo "============================================================"
-echo "Recipe tamper simulation completed."
-echo "============================================================"
+exit 0
