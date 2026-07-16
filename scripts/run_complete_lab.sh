@@ -305,16 +305,23 @@ start_persistent_python_service() {
 # Verify InfluxDB received data
 # ----------------------------------------------------------------
 influx_has_cleanroom_data() {
-    docker exec topic127-influxdb influx query \
-        "from(bucket: \"${INFLUX_BUCKET}\")
-          |> range(start: -15m)
-          |> filter(fn: (r) => r._measurement == \"cleanroom_monitoring\")
-          |> limit(n: 1)" \
-        --org "${INFLUX_ORG}" \
-        --token "${INFLUX_TOKEN}" \
-        2>/dev/null | grep "cleanroom_monitoring" >/dev/null
-}
+    local query_output
 
+    if ! query_output="$(
+        docker exec topic127-influxdb influx query \
+            "from(bucket: \"${INFLUX_BUCKET}\")
+              |> range(start: -15m)
+              |> filter(fn: (r) => r._measurement == \"cleanroom_monitoring\")
+              |> limit(n: 1)" \
+            --org "${INFLUX_ORG}" \
+            --token "${INFLUX_TOKEN}" \
+            2>/dev/null
+    )"; then
+        return 1
+    fi
+
+    grep -Fq "cleanroom_monitoring" <<<"${query_output}"
+}
 wait_for_influx_data() {
     local elapsed=0
 
