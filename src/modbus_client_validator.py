@@ -1,5 +1,5 @@
 """Topic 127 Phase 3: Modbus client validator for PLC/register security."""
-from datetime import datetime
+from datetime import datetime, timezone
 import csv
 import os
 import sys
@@ -16,7 +16,7 @@ def write_incident(findings):
         if not file_exists:
             writer.writerow(["timestamp", "source", "severity", "findings", "recommended_action"])
         writer.writerow([
-            datetime.utcnow().isoformat(),
+            datetime.now(timezone.utc).isoformat(),
             "Modbus",
             "HIGH",
             "; ".join(findings),

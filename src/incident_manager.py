@@ -1,7 +1,7 @@
 import csv
 import glob
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 REPORT = "reports/incident_summary.csv"
 os.makedirs("reports", exist_ok=True)
@@ -40,7 +40,7 @@ with open(REPORT, "w", newline="") as out:
                 if not row:
                     continue
                 writer.writerow([
-                    datetime.utcnow().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     os.path.basename(path),
                     classify_severity(row),
                     " | ".join(row),

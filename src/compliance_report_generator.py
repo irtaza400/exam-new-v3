@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 os.makedirs("reports", exist_ok=True)
 
@@ -22,7 +22,7 @@ def main():
     report = []
     report.append("# Topic 127 Automated Compliance Report")
     report.append("")
-    report.append(f"Generated: {datetime.utcnow().isoformat()} UTC")
+    report.append(f"Generated: {datetime.now(timezone.utc).isoformat()}")
     report.append("")
 
     report.append("## Evidence Files")

@@ -312,7 +312,7 @@ influx_has_cleanroom_data() {
           |> limit(n: 1)" \
         --org "${INFLUX_ORG}" \
         --token "${INFLUX_TOKEN}" \
-        2>/dev/null | grep -q "cleanroom_monitoring"
+        2>/dev/null | grep "cleanroom_monitoring" >/dev/null
 }
 
 wait_for_influx_data() {

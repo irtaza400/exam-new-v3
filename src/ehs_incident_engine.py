@@ -1,7 +1,7 @@
 import csv
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 EVENTS = "data/ehs_events.json"
 REPORT = "reports/ehs_incidents.csv"
@@ -45,7 +45,7 @@ def main():
         for event in events:
             severity, issues, action = classify(event)
             if severity != "NORMAL":
-                writer.writerow([datetime.utcnow().isoformat(), event["zone"], severity, "; ".join(issues), action])
+                writer.writerow([datetime.now(timezone.utc).isoformat(), event["zone"], severity, "; ".join(issues), action])
                 print("EHS INCIDENT:", event["zone"], severity, issues)
             else:
                 print("EHS NORMAL:", event["zone"])

@@ -1,7 +1,7 @@
 import json
 import hashlib
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 SUPPLIERS = "data/suppliers.json"
 LEDGER = "reports/supply_chain_ledger.json"
@@ -62,7 +62,7 @@ def main():
         score = risk_score(s)
         action = decision(score)
         block = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "supplier_id": s["supplier_id"],
             "supplier_name": s["name"],
             "material": s["material"],

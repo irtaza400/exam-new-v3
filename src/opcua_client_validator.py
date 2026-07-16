@@ -1,7 +1,7 @@
 """Topic 127 Phase 3: OPC-UA process validator.
 Reads process-control values and produces process security incidents.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 import csv
 import os
 import sys
@@ -19,7 +19,7 @@ def write_incident(source, severity, findings, action):
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow(["timestamp", "source", "severity", "findings", "recommended_action"])
-        writer.writerow([datetime.utcnow().isoformat(), source, severity, "; ".join(findings), action])
+        writer.writerow([datetime.now(timezone.utc).isoformat(), source, severity, "; ".join(findings), action])
 
 
 def main():

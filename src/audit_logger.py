@@ -1,6 +1,6 @@
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 AUDIT_FILE = "reports/audit_log.csv"
 os.makedirs("reports", exist_ok=True)
@@ -12,7 +12,7 @@ def write_audit(actor: str, action: str, target: str, result: str) -> None:
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow(["timestamp", "actor", "action", "target", "result"])
-        writer.writerow([datetime.utcnow().isoformat(), actor, action, target, result])
+        writer.writerow([datetime.now(timezone.utc).isoformat(), actor, action, target, result])
 
 
 if __name__ == "__main__":

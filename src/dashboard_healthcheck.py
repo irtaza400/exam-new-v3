@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 DASHBOARD = "dashboards/json/topic127_cleanroom_dashboard.json"
 REPORT = "reports/dashboard_healthcheck.txt"
@@ -21,7 +21,7 @@ if os.path.exists(DASHBOARD):
 
 with open(REPORT, "w") as f:
     f.write("Topic 127 Dashboard Healthcheck\n")
-    f.write(f"Generated: {datetime.utcnow().isoformat()}\n\n")
+    f.write(f"Generated: {datetime.now(timezone.utc).isoformat()}\n\n")
     for name, result in checks:
         f.write(f"{name}: {'PASS' if result else 'FAIL'}\n")
 

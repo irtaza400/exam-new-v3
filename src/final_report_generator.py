@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 REPORT = "reports/final_project_report.md"
 os.makedirs("reports", exist_ok=True)
@@ -20,7 +20,7 @@ files = {
 
 with open(REPORT, "w") as f:
     f.write("# Topic 127 Version 3 Final Project Report\n\n")
-    f.write(f"Generated: {datetime.utcnow().isoformat()} UTC\n\n")
+    f.write(f"Generated: {datetime.now(timezone.utc).isoformat()}\n\n")
     f.write("## Executive Summary\n\n")
     f.write("This EC2-ready enterprise lab implements a nanotechnology manufacturing security platform with IoT monitoring, AI anomaly detection, OPC-UA/Modbus process control security, supply chain traceability, worker safety, compliance automation, audit logging, and DevSecOps evidence.\n\n")
     f.write("## Evidence Files\n\n")

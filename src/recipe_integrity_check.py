@@ -1,6 +1,6 @@
 """Topic 127 Phase 3: SHA-256 recipe integrity and tamper detection."""
 import csv
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import os
 import sys
@@ -27,7 +27,7 @@ def write_incident(current_hash, approved_hash):
         if not file_exists:
             writer.writerow(["timestamp", "severity", "incident", "current_hash", "approved_hash", "recommended_action"])
         writer.writerow([
-            datetime.utcnow().isoformat(),
+            datetime.now(timezone.utc).isoformat(),
             "CRITICAL",
             "Manufacturing recipe tampering detected",
             current_hash,

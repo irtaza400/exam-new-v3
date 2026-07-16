@@ -1,7 +1,7 @@
 import os
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 
 os.makedirs("reports", exist_ok=True)
 SUMMARY = "reports/security_scan_report.txt"
@@ -25,7 +25,7 @@ else:
 
 with open(SUMMARY, "w") as f:
     f.write("Topic 127 DevSecOps Security Scan Report\n")
-    f.write(f"Generated: {datetime.utcnow().isoformat()}\n")
+    f.write(f"Generated: {datetime.now(timezone.utc).isoformat()}\n")
     f.write("=" * 70 + "\n\n")
 
     tool_names = ["Bandit", "Semgrep", "Trivy"]

@@ -12,7 +12,7 @@ This module is EC2-friendly and CPU-only. It does not require GPU.
 
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 
@@ -159,7 +159,7 @@ with open(REPORT, "a", newline="") as f:
             severity = "CRITICAL" if event["gas_ppm"] > 50 or event["ppe_compliant"] == 0 else "HIGH"
             action = "Create incident, isolate affected zone, notify EHS/security team, verify process equipment"
             writer.writerow([
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 "TensorFlow Keras Autoencoder",
                 event["zone"],
                 round(error, 6),
