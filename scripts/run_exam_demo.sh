@@ -323,19 +323,44 @@ done
 success "Live MQTT, InfluxDB and Grafana monitoring remains active."
 
 # ----------------------------------------------------------------
-# Step 5: Run recipe tamper demonstration
+# Step 5: Run controlled recipe-tamper demonstration
+#
+# Exit-code contract:
+#   0 = complete controlled tamper demonstration succeeded
+#   2 = compatibility handling for an older tamper wrapper that
+#       directly propagated the validator's detection exit code
+#   any other value = unexpected execution failure
 # ----------------------------------------------------------------
 section "[5/9] Running recipe-tamper demonstration"
 
 if [[ "${SKIP_TAMPER_DEMO}" == "1" ]]; then
     warning "Recipe-tamper demonstration skipped by configuration."
 else
-    if ! run_logged_command \
-        "Recipe tamper simulation" \
-        bash "${REPO_ROOT}/scripts/simulate_recipe_tamper.sh"; then
+    TAMPER_DEMO_EXIT_CODE=0
 
-        warning "Recipe tamper simulation returned an error; demo continuing."
-    fi
+    run_logged_command \
+        "Recipe tamper simulation" \
+        bash "${REPO_ROOT}/scripts/simulate_recipe_tamper.sh" \
+        || TAMPER_DEMO_EXIT_CODE=$?
+
+    case "${TAMPER_DEMO_EXIT_CODE}" in
+        0)
+            success "Controlled recipe tamper demonstration completed successfully."
+            success "Tampering was detected, evidence was generated, and the approved recipe was restored."
+            ;;
+
+        2)
+            warning "Tamper wrapper returned exit code 2."
+            success "Exit code 2 represents successful recipe-integrity violation detection."
+            warning "The current wrapper should normally convert this completed demonstration to exit code 0."
+            ;;
+
+        *)
+            warning "Recipe tamper demonstration returned unexpected exit code ${TAMPER_DEMO_EXIT_CODE}."
+            warning "The main examination workflow will continue, but the tamper log must be reviewed."
+            warning "Review: ${LOGS_DIR}/recipe_tamper_simulation.*.log"
+            ;;
+    esac
 fi
 
 # ----------------------------------------------------------------

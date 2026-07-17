@@ -408,14 +408,17 @@ success "Original approved recipe was restored and verified."
 
 section "Recipe Tamper Demonstration Completed Successfully"
 
-echo "Expected result:"
-echo "  Tampering detected by SHA-256 integrity validation"
+echo "Security-control result:"
+echo "  Controlled recipe modification was detected by SHA-256 validation."
 echo
-echo "Validator result:"
-echo "  Exit code 2 correctly interpreted as detection success"
+echo "Internal validator result:"
+echo "  Exit code 2 = recipe-integrity violation detected."
+echo
+echo "Demonstration result:"
+echo "  Detection, evidence generation, restoration and revalidation passed."
 echo
 echo "Restoration result:"
-echo "  Original approved recipe restored and revalidated"
+echo "  Original approved recipe restored and revalidated."
 echo
 echo "Evidence:"
 echo "  ${TAMPERED_EVIDENCE_FILE}"
@@ -425,6 +428,10 @@ echo "Log:"
 echo "  ${LOG_FILE}"
 echo
 
-success "Controlled recipe tamper simulation completed successfully."
+success "Controlled recipe tampering was detected successfully."
+success "Tamper incident evidence was generated successfully."
+success "Original approved recipe was restored and revalidated."
+info "Internal validator exit code 2 was the expected security-detection result."
+info "The complete controlled demonstration is returning exit code 0."
 
 exit 0
